@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#198754">
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon-192.svg" type="image/svg+xml">
 <title>ROMA TIME</title>
 
 <style>
@@ -69,6 +70,18 @@ iframe{
 <script>
 let deferredPrompt;
 
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("./service-worker.js", {scope: "./"})
+      .then(function(registration){
+        console.log("ROMA TIME service worker activo:", registration.scope);
+      })
+      .catch(function(error){
+        console.error("Error registrando service worker:", error);
+      });
+  });
+}
+
 window.addEventListener("beforeinstallprompt", function(e){
   e.preventDefault();
   deferredPrompt = e;
@@ -79,11 +92,16 @@ document.getElementById("install").addEventListener("click", async function(){
   if(!deferredPrompt) return;
 
   deferredPrompt.prompt();
-
   await deferredPrompt.userChoice;
 
   deferredPrompt = null;
   document.getElementById("install").style.display = "none";
+});
+
+window.addEventListener("appinstalled", function(){
+  deferredPrompt = null;
+  document.getElementById("install").style.display = "none";
+  console.log("ROMA TIME instalada correctamente.");
 });
 </script>
 
