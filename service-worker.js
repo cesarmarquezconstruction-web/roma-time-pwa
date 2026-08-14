@@ -1,4 +1,4 @@
-const CACHE_NAME = "roma-time-v2";
+const CACHE_NAME = "roma-time-v3";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -32,16 +32,31 @@ self.addEventListener("fetch", event => {
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
 
-  if (url.origin === self.location.origin) {
+  // Siempre intentar obtener la versión más reciente del HTML.
+  // Esto evita que una PWA instalada conserve un index.html viejo
+  // con una URL de API anterior.
+  if (request.mode === "navigate" || url.pathname.endsWith("/index.html")) {
     event.respondWith(
-      caches.match(request).then(cached => {
-        return cached || fetch(request).then(response => {
+      fetch(request)
+        .then(response => {
           const copy = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
           return response;
-        });
-      })
+        })
+        .catch(() => caches.match(request))
     );
+    return;
   }
+
+  event.respondWith(
+    caches.match(request).then(cached => {
+      return cached || fetch(request).then(response => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
+        return response;
+      });
+    })
+  );
 });
