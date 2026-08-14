@@ -53,25 +53,187 @@ button:disabled{opacity:.55}
   <div class="info">Semana laboral: Monday - Sunday</div>
 </div>
 <script>
-const API_URL="https://script.google.com/macros/s/AKfycbwUC_aQBzb94qbqJrG9yQ9AQCR7QRlzaqB4Ziwe1npk8HU170wKy6J3Ms8kbq1Se710PA/exec";
-let empleados=[];let requestCounter=0;let deferredPrompt=null;
-function apiCall(api,params,success,failure){const callbackName="__romaApi_"+Date.now()+"_"+(++requestCounter);const script=document.createElement("script");const query=new URLSearchParams();query.set("api",api);query.set("callback",callbackName);query.set("_",String(Date.now()));Object.keys(params||{}).forEach(function(key){query.set(key,params[key]==null?"":String(params[key]));});let timeout=setTimeout(function(){cleanup();failure(new Error("Tiempo de espera agotado. Verifica tu conexión."));},20000);function cleanup(){clearTimeout(timeout);delete window[callbackName];if(script.parentNode)script.parentNode.removeChild(script)}window[callbackName]=function(response){cleanup();if(response&&response.ok)success(response);else failure(new Error(response&&response.error?response.error:"Error en ROMA TIME."))};script.onerror=function(){cleanup();failure(new Error("No fue posible comunicarse con ROMA TIME."))};script.src=API_URL+"?"+query.toString();document.head.appendChild(script)}
+const API_URL = "https://script.google.com/macros/s/AKfycbwUC_aQBzb94qbqJrG9yQ9AQCR7QRlzaqB4Ziwe1npk8HU170wKy6J3Ms8kbq1Se710PA/exec";
+let empleados = [];
+let deferredPrompt = null;
+
+async function apiCall(api, params, success, failure) {
+  const query = new URLSearchParams();
+  query.set("api", api);
+  Object.keys(params || {}).forEach(key => {
+    query.set(key, params[key] == null ? "" : String(params[key]));
+  });
+
+  try {
+    const response = await fetch(API_URL + "?" + query.toString(), {
+      method: "GET",
+      mode: "cors",
+      redirect: "follow"
+    });
+    const data = await response.json();
+    if (data && data.ok) {
+      success(data);
+    } else {
+      failure(new Error(data && data.error ? data.error : "Error en ROMA TIME."));
+    }
+  } catch (error) {
+    console.error("Error en conexión:", error);
+    failure(new Error("No fue posible comunicarse con ROMA TIME."));
+  }
+}
+
 function getEmployeeId(){return document.getElementById("employeeId").value.trim()}
 function getProjectId(){return document.getElementById("project").value.trim()}
 function actualizarBotones(){const employeeId=getEmployeeId();const projectId=getProjectId();document.getElementById("clockInButton").disabled=!employeeId||!projectId;document.getElementById("clockOutButton").disabled=!employeeId}
 function mostrarError(error){document.getElementById("status").textContent="❌ "+(error&&error.message?error.message:"Ocurrió un error.");actualizarBotones()}
-function renderizarEmpleados(resultados){const contenedor=document.getElementById("employeeResults");contenedor.innerHTML="";contenedor.style.display="block";if(!resultados||resultados.length===0){const vacio=document.createElement("div");vacio.className="employee-empty";vacio.textContent=empleados.length?"No se encontró ese trabajador.":"No hay trabajadores activos registrados.";contenedor.appendChild(vacio);return}resultados.forEach(function(empleado){const boton=document.createElement("button");boton.type="button";boton.className="employee-option";const nombre=document.createElement("span");nombre.className="employee-name";nombre.textContent=empleado.nombreCompleto;const id=document.createElement("span");id.className="employee-id";id.textContent=empleado.id;boton.appendChild(nombre);boton.appendChild(id);boton.addEventListener("click",function(){seleccionarEmpleado(empleado)});contenedor.appendChild(boton)})}
-function filtrarEmpleados(){const texto=document.getElementById("employeeSearch").value.trim().toLowerCase();renderizarEmpleados(empleados.filter(function(empleado){return !texto||empleado.busqueda.indexOf(texto)!==-1}))}
-function seleccionarEmpleado(empleado){document.getElementById("employeeSearch").value=empleado.nombreCompleto;document.getElementById("employeeId").value=empleado.id;document.getElementById("employeeResults").style.display="none";document.getElementById("status").textContent="Empleado seleccionado: "+empleado.nombreCompleto;actualizarBotones()}
-function cargarEmpleados(){apiCall("employees",{},function(response){empleados=Array.isArray(response.data)?response.data:[];actualizarBotones()},mostrarError)}
-function cargarProyectos(){apiCall("projects",{},function(response){const select=document.getElementById("project");select.innerHTML="";if(!response.data||response.data.length===0){const option=document.createElement("option");option.value="";option.textContent="No hay proyectos activos";select.appendChild(option);actualizarBotones();return}const inicial=document.createElement("option");inicial.value="";inicial.textContent="Selecciona un proyecto";select.appendChild(inicial);response.data.forEach(function(proyecto){const option=document.createElement("option");option.value=proyecto.id;option.textContent=proyecto.nombre;select.appendChild(option)});actualizarBotones()},mostrarError)}
-function setButtons(enabled){if(!enabled){document.getElementById("clockInButton").disabled=true;document.getElementById("clockOutButton").disabled=true}else actualizarBotones()}
-function clockIn(){const employeeId=getEmployeeId();const projectId=getProjectId();if(!employeeId){document.getElementById("status").textContent="⚠️ Selecciona un trabajador.";return}if(!projectId){document.getElementById("status").textContent="⚠️ Selecciona un proyecto.";return}setButtons(false);document.getElementById("status").textContent="Registrando entrada...";apiCall("clockin",{employeeId:employeeId,projectId:projectId},function(response){document.getElementById("status").textContent=response.message||"CLOCK IN registrado.";setButtons(true)},mostrarError)}
-function clockOut(){const employeeId=getEmployeeId();if(!employeeId){document.getElementById("status").textContent="⚠️ Selecciona un trabajador.";return}setButtons(false);document.getElementById("status").textContent="Registrando salida...";apiCall("clockout",{employeeId:employeeId},function(response){document.getElementById("status").textContent=response.message||"CLOCK OUT registrado.";setButtons(true)},mostrarError)}
-document.getElementById("employeeSearch").addEventListener("input",filtrarEmpleados);document.getElementById("employeeSearch").addEventListener("focus",filtrarEmpleados);document.getElementById("project").addEventListener("change",actualizarBotones);document.getElementById("clockInButton").addEventListener("click",clockIn);document.getElementById("clockOutButton").addEventListener("click",clockOut);document.addEventListener("click",function(event){const employeeBox=document.querySelector(".employee");if(!employeeBox.contains(event.target))document.getElementById("employeeResults").style.display="none"});
-window.addEventListener("beforeinstallprompt",function(event){event.preventDefault();deferredPrompt=event;document.getElementById("install").style.display="block"});document.getElementById("install").addEventListener("click",async function(){if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;document.getElementById("install").style.display="none"});window.addEventListener("appinstalled",function(){deferredPrompt=null;document.getElementById("install").style.display="none"});
-if("serviceWorker" in navigator){navigator.serviceWorker.register("./service-worker.js",{scope:"./"}).catch(console.error)}
-window.addEventListener("load",function(){document.getElementById("ready").style.display="block";document.getElementById("status").textContent="Conectando con ROMA TIME...";cargarEmpleados();cargarProyectos()});
+
+function renderizarEmpleados(resultados){
+  const contenedor=document.getElementById("employeeResults");
+  contenedor.innerHTML="";
+  contenedor.style.display="block";
+  if(!resultados||resultados.length===0){
+    const vacio=document.createElement("div");
+    vacio.className="employee-empty";
+    vacio.textContent=empleados.length?"No se encontró ese trabajador.":"No hay trabajadores activos registrados.";
+    contenedor.appendChild(vacio);
+    return;
+  }
+  resultados.forEach(function(empleado){
+    const boton=document.createElement("button");
+    boton.type="button";
+    boton.className="employee-option";
+    const nombre=document.createElement("span");
+    nombre.className="employee-name";
+    nombre.textContent=empleado.nombreCompleto;
+    const id=document.createElement("span");
+    id.className="employee-id";
+    id.textContent=empleado.id;
+    boton.appendChild(nombre);
+    boton.appendChild(id);
+    boton.addEventListener("click",function(){seleccionarEmpleado(empleado)});
+    contenedor.appendChild(boton);
+  });
+}
+
+function filtrarEmpleados(){
+  const texto=document.getElementById("employeeSearch").value.trim().toLowerCase();
+  renderizarEmpleados(empleados.filter(function(empleado){return !texto||empleado.busqueda.indexOf(texto)!==-1}));
+}
+
+function seleccionarEmpleado(empleado){
+  document.getElementById("employeeSearch").value=empleado.nombreCompleto;
+  document.getElementById("employeeId").value=empleado.id;
+  document.getElementById("employeeResults").style.display="none";
+  document.getElementById("status").textContent="Empleado seleccionado: "+empleado.nombreCompleto;
+  actualizarBotones();
+}
+
+function cargarEmpleados(){
+  apiCall("employees",{},function(response){
+    empleados=Array.isArray(response.data)?response.data:[];
+    document.getElementById("status").textContent="";
+    actualizarBotones();
+  },mostrarError);
+}
+
+function cargarProyectos(){
+  apiCall("projects",{},function(response){
+    const select=document.getElementById("project");
+    select.innerHTML="";
+    if(!response.data||response.data.length===0){
+      const option=document.createElement("option");
+      option.value="";
+      option.textContent="No hay proyectos activos";
+      select.appendChild(option);
+      actualizarBotones();
+      return;
+    }
+    const inicial=document.createElement("option");
+    inicial.value="";
+    inicial.textContent="Selecciona un proyecto";
+    select.appendChild(inicial);
+    response.data.forEach(function(proyecto){
+      const option=document.createElement("option");
+      option.value=proyecto.id;
+      option.textContent=proyecto.nombre;
+      select.appendChild(option);
+    });
+    actualizarBotones();
+  },mostrarError);
+}
+
+function setButtons(enabled){
+  if(!enabled){
+    document.getElementById("clockInButton").disabled=true;
+    document.getElementById("clockOutButton").disabled=true;
+  } else {
+    actualizarBotones();
+  }
+}
+
+function clockIn(){
+  const employeeId=getEmployeeId();
+  const projectId=getProjectId();
+  if(!employeeId){document.getElementById("status").textContent="⚠️ Selecciona un trabajador.";return}
+  if(!projectId){document.getElementById("status").textContent="⚠️ Selecciona un proyecto.";return}
+  setButtons(false);
+  document.getElementById("status").textContent="Registrando entrada...";
+  apiCall("clockin",{employeeId:employeeId,projectId:projectId},function(response){
+    document.getElementById("status").textContent=response.message||"CLOCK IN registrado.";
+    setButtons(true);
+  },mostrarError);
+}
+
+function clockOut(){
+  const employeeId=getEmployeeId();
+  if(!employeeId){document.getElementById("status").textContent="⚠️ Selecciona un trabajador.";return}
+  setButtons(false);
+  document.getElementById("status").textContent="Registrando salida...";
+  apiCall("clockout",{employeeId:employeeId},function(response){
+    document.getElementById("status").textContent=response.message||"CLOCK OUT registrado.";
+    setButtons(true);
+  },mostrarError);
+}
+
+document.getElementById("employeeSearch").addEventListener("input",filtrarEmpleados);
+document.getElementById("employeeSearch").addEventListener("focus",filtrarEmpleados);
+document.getElementById("project").addEventListener("change",actualizarBotones);
+document.getElementById("clockInButton").addEventListener("click",clockIn);
+document.getElementById("clockOutButton").addEventListener("click",clockOut);
+document.addEventListener("click",function(event){
+  const employeeBox=document.querySelector(".employee");
+  if(!employeeBox.contains(event.target))document.getElementById("employeeResults").style.display="none";
+});
+
+window.addEventListener("beforeinstallprompt",function(event){
+  event.preventDefault();
+  deferredPrompt=event;
+  document.getElementById("install").style.display="block";
+});
+
+document.getElementById("install").addEventListener("click",async function(){
+  if(!deferredPrompt)return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt=null;
+  document.getElementById("install").style.display="none";
+});
+
+window.addEventListener("appinstalled",function(){
+  deferredPrompt=null;
+  document.getElementById("install").style.display="none";
+});
+
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("./service-worker.js",{scope:"./"}).catch(console.error);
+}
+
+window.addEventListener("load",function(){
+  document.getElementById("ready").style.display="block";
+  document.getElementById("status").textContent="Conectando con ROMA TIME...";
+  cargarEmpleados();
+  cargarProyectos();
+});
 </script>
 </body>
 </html>
