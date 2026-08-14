@@ -2,69 +2,76 @@
 <html lang="es-MX">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#198754">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
 <title>ROMA TIME</title>
 <style>
-html,body{margin:0;width:100%;height:100%;font-family:Arial,sans-serif;background:#f4f6f8}
-body{display:flex;align-items:center;justify-content:center}
-.container{width:min(420px,calc(100% - 40px));box-sizing:border-box;background:white;border-radius:15px;padding:30px;text-align:center;box-shadow:0 3px 10px rgba(0,0,0,.15)}
-h1{margin:0 0 12px}
-p{color:#666;line-height:1.5}
-#install{display:none;width:100%;border:0;border-radius:10px;padding:15px;margin-top:12px;background:#198754;color:white;font-size:16px;font-weight:bold}
-#open{display:block;width:100%;box-sizing:border-box;border-radius:10px;padding:15px;margin-top:12px;background:#198754;color:white;text-decoration:none;font-weight:bold}
-#status{font-size:13px;color:#777;margin-top:15px}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;min-height:100%;font-family:Arial,sans-serif;background:#f4f6f8}
+body{display:flex;justify-content:center;padding:20px}
+.container{width:min(460px,100%);margin:auto;background:#fff;border-radius:15px;padding:24px;box-shadow:0 3px 14px rgba(0,0,0,.14)}
+h1{margin:0 0 18px;text-align:center}
+label{display:block;font-weight:bold;margin:14px 0 6px}
+.employee{position:relative}
+input,select{width:100%;padding:14px;font-size:16px;border:1px solid #ccc;border-radius:9px;background:#fff}
+#employeeResults{position:absolute;z-index:20;left:0;right:0;top:74px;background:#fff;border:1px solid #ccc;border-radius:9px;box-shadow:0 4px 12px rgba(0,0,0,.15);max-height:260px;overflow-y:auto;display:none}
+.employee-option{display:block;width:100%;border:0;border-bottom:1px solid #eee;background:#fff;padding:13px 14px;text-align:left}
+.employee-name{display:block;font-size:16px;font-weight:bold}
+.employee-id{display:block;margin-top:3px;font-size:12px;color:#666}
+.employee-empty{padding:14px;color:#666;text-align:center}
+button{width:100%;padding:17px;margin-top:12px;border:0;border-radius:10px;font-size:18px;font-weight:bold}
+button:disabled{opacity:.55}
+.clockin{background:#198754;color:#fff}
+.clockout{background:#dc3545;color:#fff}
+#status{margin-top:18px;font-weight:bold;white-space:pre-line;text-align:center;min-height:24px}
+.info{font-size:13px;color:#666;margin-top:16px;text-align:center}
+.install{display:none;background:#0d6efd;color:#fff}
+.ready{display:none;text-align:center;color:#198754;font-weight:bold;margin-bottom:10px}
 </style>
 </head>
 <body>
 <div class="container">
   <h1>ROMA TIME</h1>
-  <p id="message">Abriendo ROMA TIME...</p>
-  <button id="install">INSTALAR APP</button>
-  <a id="open" href="https://script.google.com/macros/s/AKfycbyuK0q4A6HJsUwgDhezgBmf_XPyk9I28665VlN4DaAbLOQ52Ca0W6twFq68rKk033R7w/exec">ABRIR ROMA TIME</a>
+  <div id="ready" class="ready">ROMA TIME está lista.</div>
+  <button id="install" class="install">INSTALAR APP</button>
+  <div class="employee">
+    <label for="employeeSearch">Employee</label>
+    <input id="employeeSearch" type="text" placeholder="🔍 Buscar trabajador..." autocomplete="off">
+    <input id="employeeId" type="hidden">
+    <div id="employeeResults"></div>
+  </div>
+  <label for="project">Project</label>
+  <select id="project"><option value="">Cargando proyectos...</option></select>
+  <button id="clockInButton" class="clockin" disabled>CLOCK IN</button>
+  <button id="clockOutButton" class="clockout" disabled>CLOCK OUT</button>
   <div id="status"></div>
+  <div class="info">Semana laboral: Monday - Sunday</div>
 </div>
 <script>
-const APP_URL="https://script.google.com/macros/s/AKfycbyuK0q4A6HJsUwgDhezgBmf_XPyk9I28665VlN4DaAbLOQ52Ca0W6twFq68rKk033R7w/exec";
-let deferredPrompt=null;
-
-if("serviceWorker" in navigator){
-  window.addEventListener("load",function(){
-    navigator.serviceWorker.register("./service-worker.js",{scope:"./"})
-      .then(function(registration){console.log("ROMA TIME service worker activo:",registration.scope)})
-      .catch(function(error){console.error("Error registrando service worker:",error)});
-  });
-}
-
-window.addEventListener("beforeinstallprompt",function(event){
-  event.preventDefault();
-  deferredPrompt=event;
-  document.getElementById("install").style.display="block";
-  document.getElementById("message").textContent="ROMA TIME está lista para instalarse.";
-});
-
-document.getElementById("install").addEventListener("click",async function(){
-  if(!deferredPrompt)return;
-  deferredPrompt.prompt();
-  await deferredPrompt.userChoice;
-  deferredPrompt=null;
-  document.getElementById("install").style.display="none";
-});
-
-window.addEventListener("appinstalled",function(){
-  deferredPrompt=null;
-  document.getElementById("install").style.display="none";
-  document.getElementById("status").textContent="ROMA TIME instalada correctamente.";
-});
-
-/*
- * No usamos iframe para Google Apps Script.
- * La aplicación se abre directamente para que google.script.run
- * funcione dentro del HTML Service de Apps Script.
- */
-setTimeout(function(){window.location.replace(APP_URL)},1200);
+const API_URL="https://script.google.com/macros/s/AKfycbyuK0q4A6HJsUwgDhezgBmf_XPyk9I28665Vl9N4DaAbLOQ52Ca0W6twFq68rKk033R7w/exec";
+let empleados=[];let requestCounter=0;let deferredPrompt=null;
+function apiCall(api,params,success,failure){const callbackName="__romaApi_"+Date.now()+"_"+(++requestCounter);const script=document.createElement("script");const query=new URLSearchParams();query.set("api",api);query.set("callback",callbackName);query.set("_",String(Date.now()));Object.keys(params||{}).forEach(function(key){query.set(key,params[key]==null?"":String(params[key]));});let timeout=setTimeout(function(){cleanup();failure(new Error("Tiempo de espera agotado. Verifica tu conexión."));},20000);function cleanup(){clearTimeout(timeout);delete window[callbackName];if(script.parentNode)script.parentNode.removeChild(script)}window[callbackName]=function(response){cleanup();if(response&&response.ok)success(response);else failure(new Error(response&&response.error?response.error:"Error en ROMA TIME."))};script.onerror=function(){cleanup();failure(new Error("No fue posible comunicarse con ROMA TIME."))};script.src=API_URL+"?"+query.toString();document.head.appendChild(script)}
+function getEmployeeId(){return document.getElementById("employeeId").value.trim()}
+function getProjectId(){return document.getElementById("project").value.trim()}
+function actualizarBotones(){const employeeId=getEmployeeId();const projectId=getProjectId();document.getElementById("clockInButton").disabled=!employeeId||!projectId;document.getElementById("clockOutButton").disabled=!employeeId}
+function mostrarError(error){document.getElementById("status").textContent="❌ "+(error&&error.message?error.message:"Ocurrió un error.");actualizarBotones()}
+function renderizarEmpleados(resultados){const contenedor=document.getElementById("employeeResults");contenedor.innerHTML="";contenedor.style.display="block";if(!resultados||resultados.length===0){const vacio=document.createElement("div");vacio.className="employee-empty";vacio.textContent=empleados.length?"No se encontró ese trabajador.":"No hay trabajadores activos registrados.";contenedor.appendChild(vacio);return}resultados.forEach(function(empleado){const boton=document.createElement("button");boton.type="button";boton.className="employee-option";const nombre=document.createElement("span");nombre.className="employee-name";nombre.textContent=empleado.nombreCompleto;const id=document.createElement("span");id.className="employee-id";id.textContent=empleado.id;boton.appendChild(nombre);boton.appendChild(id);boton.addEventListener("click",function(){seleccionarEmpleado(empleado)});contenedor.appendChild(boton)})}
+function filtrarEmpleados(){const texto=document.getElementById("employeeSearch").value.trim().toLowerCase();renderizarEmpleados(empleados.filter(function(empleado){return !texto||empleado.busqueda.indexOf(texto)!==-1}))}
+function seleccionarEmpleado(empleado){document.getElementById("employeeSearch").value=empleado.nombreCompleto;document.getElementById("employeeId").value=empleado.id;document.getElementById("employeeResults").style.display="none";document.getElementById("status").textContent="Empleado seleccionado: "+empleado.nombreCompleto;actualizarBotones()}
+function cargarEmpleados(){apiCall("employees",{},function(response){empleados=Array.isArray(response.data)?response.data:[];actualizarBotones()},mostrarError)}
+function cargarProyectos(){apiCall("projects",{},function(response){const select=document.getElementById("project");select.innerHTML="";if(!response.data||response.data.length===0){const option=document.createElement("option");option.value="";option.textContent="No hay proyectos activos";select.appendChild(option);actualizarBotones();return}const inicial=document.createElement("option");inicial.value="";inicial.textContent="Selecciona un proyecto";select.appendChild(inicial);response.data.forEach(function(proyecto){const option=document.createElement("option");option.value=proyecto.id;option.textContent=proyecto.nombre;select.appendChild(option)});actualizarBotones()},mostrarError)}
+function setButtons(enabled){if(!enabled){document.getElementById("clockInButton").disabled=true;document.getElementById("clockOutButton").disabled=true}else actualizarBotones()}
+function clockIn(){const employeeId=getEmployeeId();const projectId=getProjectId();if(!employeeId){document.getElementById("status").textContent="⚠️ Selecciona un trabajador.";return}if(!projectId){document.getElementById("status").textContent="⚠️ Selecciona un proyecto.";return}setButtons(false);document.getElementById("status").textContent="Registrando entrada...";apiCall("clockin",{employeeId:employeeId,projectId:projectId},function(response){document.getElementById("status").textContent=response.message||"CLOCK IN registrado.";setButtons(true)},mostrarError)}
+function clockOut(){const employeeId=getEmployeeId();if(!employeeId){document.getElementById("status").textContent="⚠️ Selecciona un trabajador.";return}setButtons(false);document.getElementById("status").textContent="Registrando salida...";apiCall("clockout",{employeeId:employeeId},function(response){document.getElementById("status").textContent=response.message||"CLOCK OUT registrado.";setButtons(true)},mostrarError)}
+document.getElementById("employeeSearch").addEventListener("input",filtrarEmpleados);document.getElementById("employeeSearch").addEventListener("focus",filtrarEmpleados);document.getElementById("project").addEventListener("change",actualizarBotones);document.getElementById("clockInButton").addEventListener("click",clockIn);document.getElementById("clockOutButton").addEventListener("click",clockOut);document.addEventListener("click",function(event){const employeeBox=document.querySelector(".employee");if(!employeeBox.contains(event.target))document.getElementById("employeeResults").style.display="none"});
+window.addEventListener("beforeinstallprompt",function(event){event.preventDefault();deferredPrompt=event;document.getElementById("install").style.display="block"});document.getElementById("install").addEventListener("click",async function(){if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;document.getElementById("install").style.display="none"});window.addEventListener("appinstalled",function(){deferredPrompt=null;document.getElementById("install").style.display="none"});
+if("serviceWorker" in navigator){navigator.serviceWorker.register("./service-worker.js",{scope:"./"}).catch(console.error)}
+window.addEventListener("load",function(){document.getElementById("ready").style.display="block";document.getElementById("status").textContent="Conectando con ROMA TIME...";cargarEmpleados();cargarProyectos()});
 </script>
 </body>
 </html>
