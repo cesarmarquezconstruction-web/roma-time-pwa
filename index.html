@@ -53,7 +53,7 @@ button:disabled{opacity:.55}
   <div class="info">Semana laboral: Monday - Sunday</div>
 </div>
 <script>
-const API_URL="https://script.google.com/macros/s/AKfycbyuK0q4A6HJsUwgDhezgBmf_XPyk9I28665Vl9N4DaAbLOQ52Ca0W6twFq68rKk033R7w/exec";
+const API_URL="https://script.google.com/macros/s/AKfycbwUC_aQBzb94qbqJrG9yQ9AQCR7QRlzaqB4Ziwe1npk8HU170wKy6J3Ms8kbq1Se710PA/exec";
 let empleados=[];let requestCounter=0;let deferredPrompt=null;
 function apiCall(api,params,success,failure){const callbackName="__romaApi_"+Date.now()+"_"+(++requestCounter);const script=document.createElement("script");const query=new URLSearchParams();query.set("api",api);query.set("callback",callbackName);query.set("_",String(Date.now()));Object.keys(params||{}).forEach(function(key){query.set(key,params[key]==null?"":String(params[key]));});let timeout=setTimeout(function(){cleanup();failure(new Error("Tiempo de espera agotado. Verifica tu conexión."));},20000);function cleanup(){clearTimeout(timeout);delete window[callbackName];if(script.parentNode)script.parentNode.removeChild(script)}window[callbackName]=function(response){cleanup();if(response&&response.ok)success(response);else failure(new Error(response&&response.error?response.error:"Error en ROMA TIME."))};script.onerror=function(){cleanup();failure(new Error("No fue posible comunicarse con ROMA TIME."))};script.src=API_URL+"?"+query.toString();document.head.appendChild(script)}
 function getEmployeeId(){return document.getElementById("employeeId").value.trim()}
