@@ -55,31 +55,59 @@ button:disabled{opacity:.55}
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbwUC_aQBzb94qbqJrG9yQ9AQCR7QRlzaqB4Ziwe1npk8HU170wKy6J3Ms8kbq1Se710PA/exec";
 let empleados = [];
+let requestCounter = 0;
 let deferredPrompt = null;
 
-async function apiCall(api, params, success, failure) {
+function apiCall(api, params, success, failure) {
+  // Método híbrido: intenta Fetch (Android) y si falla ejecuta JSONP (iPhone/Safari)
   const query = new URLSearchParams();
   query.set("api", api);
   Object.keys(params || {}).forEach(key => {
     query.set(key, params[key] == null ? "" : String(params[key]));
   });
 
-  try {
-    const response = await fetch(API_URL + "?" + query.toString(), {
-      method: "GET",
-      mode: "cors",
-      redirect: "follow"
-    });
-    const data = await response.json();
-    if (data && data.ok) {
-      success(data);
-    } else {
-      failure(new Error(data && data.error ? data.error : "Error en ROMA TIME."));
+  fetch(API_URL + "?" + query.toString(), {
+    method: "GET",
+    mode: "cors",
+    redirect: "follow"
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data && data.ok) success(data);
+    else failure(new Error(data && data.error ? data.error : "Error en ROMA TIME."));
+  })
+  .catch(() => {
+    // Si falla el fetch por bloqueo de Safari en iOS, usa JSONP
+    const callbackName = "__romaApi_" + Date.now() + "_" + (++requestCounter);
+    const script = document.createElement("script");
+    query.set("callback", callbackName);
+    query.set("_", String(Date.now()));
+
+    let timeout = setTimeout(() => {
+      cleanup();
+      failure(new Error("Tiempo de espera agotado. Verifica tu conexión."));
+    }, 15000);
+
+    function cleanup() {
+      clearTimeout(timeout);
+      delete window[callbackName];
+      if (script.parentNode) script.parentNode.removeChild(script);
     }
-  } catch (error) {
-    console.error("Error en conexión:", error);
-    failure(new Error("No fue posible comunicarse con ROMA TIME."));
-  }
+
+    window[callbackName] = function(response) {
+      cleanup();
+      if (response && response.ok) success(response);
+      else failure(new Error(response && response.error ? response.error : "Error en ROMA TIME."));
+    };
+
+    script.onerror = function() {
+      cleanup();
+      failure(new Error("No fue posible comunicarse con ROMA TIME."));
+    };
+
+    script.src = API_URL + "?" + query.toString();
+    document.head.appendChild(script);
+  });
 }
 
 function getEmployeeId(){return document.getElementById("employeeId").value.trim()}
